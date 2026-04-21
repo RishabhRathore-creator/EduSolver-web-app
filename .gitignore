@@ -44,3 +44,6 @@ node_modules/
 .next/
 .env.local
 app.zip
+
+# clerk configuration (can include secrets)
+/.clerk/

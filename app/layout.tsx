@@ -1,17 +1,18 @@
 // app/layout.tsx
-// ─────────────────────────────────────────────────────────────────────────────
-// Root layout — wraps every page. Defines <html> and <body>.
-// Kept minimal because:
-//   - Landing page (/) has its own custom dark navbar internally
-//   - Solver page (/solve) uses ChatHeader instead of a standard navbar
-// ─────────────────────────────────────────────────────────────────────────────
-
-// FIX: Removed the Navbar and Footer imports that were causing errors.
-// Those component files don't exist yet, and we don't need them here
-// because each page manages its own navigation independently.
-
 import type { Metadata } from 'next';
+import { ClerkProvider } from '@clerk/nextjs';
+import { Geist, Geist_Mono } from 'next/font/google';
 import './globals.css';
+
+const geistSans = Geist({
+  variable: '--font-geist-sans',
+  subsets: ['latin'],
+});
+
+const geistMono = Geist_Mono({
+  variable: '--font-geist-mono',
+  subsets: ['latin'],
+});
 
 export const metadata: Metadata = {
   title: {
@@ -19,47 +20,21 @@ export const metadata: Metadata = {
     default: 'EduSolver — Pedagogy-First STEM Tutor',
   },
   description:
-    'Step-by-step STEM solutions with pedagogical notes, common mistake warnings, and exam tips. Fine-tuned on NCERT, JEE, and NEET datasets for Classes 8–12.',
-  keywords: [
-    'STEM tutor',
-    'NCERT solutions',
-    'JEE preparation',
-    'NEET preparation',
-    'AI tutor India',
-    'step by step maths',
-    'Class 10 maths',
-  ],
-  openGraph: {
-    title: 'EduSolver — Pedagogy-First STEM Tutor',
-    description: 'AI-powered STEM solutions that actually teach you why.',
-    type: 'website',
-  },
+    'Step-by-step STEM solutions with pedagogical notes, common mistake warnings, and exam tips.',
 };
 
 export default function RootLayout({
   children,
-}: {
+}: Readonly<{
   children: React.ReactNode;
-}) {
+}>) {
   return (
     <html lang="en">
-      <body>
-        {/*
-          App shell:
-          ┌──────────────────────────────────┐
-          │  {children}                      │
-          │  Landing page → app/page.tsx     │
-          │  Solver page  → app/Solve/page   │
-          └──────────────────────────────────┘
-
-          Each page manages its own header:
-          - page.tsx     → has its own <nav> inside the page
-          - Solve/page   → uses <ChatHeader> component
-
-          If you add more pages later that need a shared navbar,
-          create a route group:  app/(main)/layout.tsx
-        */}
-        {children}
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+        {/* The ClerkProvider wraps the app but does NOT render any visible UI on its own */}
+        <ClerkProvider>
+          {children}
+        </ClerkProvider>
       </body>
     </html>
   );

@@ -3,6 +3,7 @@
 // All hover effects are pure CSS (no event handlers) so this stays server-renderable.
 
 import Link from 'next/link';
+import { Show, SignInButton, SignUpButton, UserButton } from '@clerk/nextjs';
 import AnimatedSection from './components/AnimatedSection';
 
 const STATS = [
@@ -90,18 +91,6 @@ export default function HomePage() {
 
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-        /* ── THE KEY FIX ──────────────────────────────────────────────────
-           The error you got said "Event handlers cannot be passed to Client
-           Component props." The cause was using onMouseOver and onMouseOut
-           directly on elements in a Server Component. Those are JavaScript
-           functions — they can't be serialized and sent from server to browser.
-
-           The fix: move ALL hover effects into CSS classes using :hover pseudo-
-           selector. CSS is just a string — it works perfectly in Server Components
-           because the server writes it into the HTML as text. The browser handles
-           the actual hover behavior natively, no JS needed at all.
-        ──────────────────────────────────────────────────────────────────── */
-
         /* Navbar links hover — pure CSS, no JS */
         .nav-link {
           font-size: 14px;
@@ -109,6 +98,9 @@ export default function HomePage() {
           text-decoration: none;
           transition: color 0.15s ease;
           font-family: 'DM Sans', sans-serif;
+          background: none;
+          border: none;
+          cursor: pointer;
         }
         .nav-link:hover { color: #e6edf3; }
 
@@ -302,13 +294,28 @@ export default function HomePage() {
             </span>
           </div>
 
-          {/* className="nav-link" — hover handled by CSS above, not JS */}
           <div className="nav-links" style={{ display: 'flex', alignItems: 'center', gap: 32 }}>
             <a href="#features" className="nav-link">Features</a>
             <a href="#pipeline" className="nav-link">How it works</a>
-            <Link href="/solve" className="btn-primary" style={{ padding: '10px 20px', fontSize: 14 }}>
-              Start Solving →
-            </Link>
+
+            {/* Clerk Auth Integration */}
+            <Show when="signed-out">
+              <SignInButton mode="modal">
+                <button className="nav-link">Sign In</button>
+              </SignInButton>
+              <SignUpButton mode="modal">
+                <button className="btn-primary" style={{ padding: '10px 20px', fontSize: 14 }}>
+                  Start Solving →
+                </button>
+              </SignUpButton>
+            </Show>
+
+            <Show when="signed-in">
+              <Link href="/solve" className="btn-primary" style={{ padding: '10px 20px', fontSize: 14 }}>
+                Go to Solver →
+              </Link>
+              <UserButton />
+            </Show>
           </div>
         </div>
       </nav>
@@ -364,9 +371,18 @@ export default function HomePage() {
             className="cta-row"
             style={{ display: 'flex', gap: 16, justifyContent: 'center', flexWrap: 'wrap' }}
           >
-            <Link href="/solve" className="btn-primary">
-              Start Solving Free <span>→</span>
-            </Link>
+            <Show when="signed-out">
+              <SignUpButton mode="modal">
+                <button className="btn-primary">
+                  Start Solving Free <span>→</span>
+                </button>
+              </SignUpButton>
+            </Show>
+            <Show when="signed-in">
+              <Link href="/solve" className="btn-primary">
+                Start Solving <span>→</span>
+              </Link>
+            </Show>
             <a href="#features" className="btn-secondary">
               See how it works
             </a>
@@ -466,9 +482,18 @@ export default function HomePage() {
           <p style={{ fontSize: 16, color: '#8b949e', lineHeight: 1.7, marginBottom: 40 }}>
             No more memorising steps you don't understand. Ask your first question and get a solution that actually teaches you why.
           </p>
-          <Link href="/solve" className="btn-primary" style={{ fontSize: 16, padding: '16px 36px' }}>
-            Open EduSolver <span>→</span>
-          </Link>
+          <Show when="signed-out">
+            <SignUpButton mode="modal">
+              <button className="btn-primary" style={{ fontSize: 16, padding: '16px 36px' }}>
+                Open EduSolver <span>→</span>
+              </button>
+            </SignUpButton>
+          </Show>
+          <Show when="signed-in">
+            <Link href="/solve" className="btn-primary" style={{ fontSize: 16, padding: '16px 36px' }}>
+              Open EduSolver <span>→</span>
+            </Link>
+          </Show>
         </div>
       </section>
 
