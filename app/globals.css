@@ -1,0 +1,91 @@
+/* app/globals.css
+   ─────────────────────────────────────────────────────────────────────────────
+   Global styles — imported once in layout.tsx, applied to every page.
+
+   FIX: Updated for Tailwind CSS v4.
+   In Tailwind v3, you used three separate directives:
+     @tailwind base;
+     @tailwind components;
+     @tailwind utilities;
+
+   In Tailwind v4 (which your project uses), all three were replaced with
+   a single import line. That's it. The @tailwind directives no longer exist.
+   Using the old syntax in v4 causes the exact error you saw:
+   "@tailwind base is no longer available in v4"
+   ───────────────────────────────────────────────────────────────────────────── */
+
+@import "tailwindcss";
+
+/* ── Global reset ────────────────────────────────────────────────────────────
+   box-sizing: border-box means padding and border are INCLUDED in an
+   element's stated width/height. Without this, a div with width:100px
+   and padding:10px would actually render at 120px — breaking layouts.
+   This is the most impactful single CSS rule to set globally.
+──────────────────────────────────────────────────────────────────────────── */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+/* ── Body defaults ───────────────────────────────────────────────────────────
+   antialiasing makes text render sharper on retina/mac screens by
+   smoothing font edges at the sub-pixel level.
+──────────────────────────────────────────────────────────────────────────── */
+body {
+  margin: 0;
+  padding: 0;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+}
+
+/* ── Smooth scroll ───────────────────────────────────────────────────────────
+   Makes anchor links like href="#features" scroll smoothly
+   instead of jumping instantly to the section.
+──────────────────────────────────────────────────────────────────────────── */
+html {
+  scroll-behavior: smooth;
+}
+
+/* ── Custom scrollbar ────────────────────────────────────────────────────────
+   Makes the scrollbar thin and dark to match EduSolver's color palette.
+   -webkit- targets Chrome, Safari, Edge.
+   scrollbar-width/color targets Firefox.
+──────────────────────────────────────────────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #21262d;
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #30363d;
+}
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #21262d transparent;
+}
+
+/* ── Text selection color ────────────────────────────────────────────────────
+   Controls the highlight color when a user selects text.
+   Teal matches the EduSolver brand.
+──────────────────────────────────────────────────────────────────────────── */
+::selection {
+  background: rgba(45, 212, 191, 0.25);
+  color: inherit;
+}
+
+/* ── Focus ring ──────────────────────────────────────────────────────────────
+   Replaces the default browser focus outline with a clean teal ring.
+   :focus-visible only applies when navigating with keyboard (not mouse clicks)
+   so it doesn't show an outline when you click a button normally.
+   Never remove focus styles entirely — keyboard users need them.
+──────────────────────────────────────────────────────────────────────────── */
+:focus-visible {
+  outline: 2px solid rgba(45, 212, 191, 0.6);
+  outline-offset: 2px;
+}
