@@ -53,7 +53,7 @@ type Message = {
   id: string;           // unique ID so React can track each message
   role: 'user' | 'assistant';
   content: string | SolverResult; // user sends a string, AI returns a SolverResult
-  timestamp: Date;
+  timestamp: string;
 };
 
 // ─── Main Component ───────────────────────────────────────────────────────
@@ -125,7 +125,7 @@ export default function SolvePage() {
       id: `user-${Date.now()}`,
       role: 'user',
       content: question,
-      timestamp: new Date(),
+      timestamp: new Date().toISOString(),
     };
 
     // Add the user's message to the conversation.
@@ -177,7 +177,7 @@ export default function SolvePage() {
         id: `ai-${Date.now()}`,
         role: 'assistant',
         content: data.result,   // this is a SolverResult object
-        timestamp: new Date(),
+        timestamp: new Date().toISOString(),
       };
 
       // Add the AI's response to the conversation history
@@ -237,7 +237,7 @@ export default function SolvePage() {
 
         {/* Show empty state when no messages yet, otherwise show messages */}
         {messages.length === 0 ? (
-          <EmptyChatState onExampleClick={handleExampleClick} />
+          <EmptyChatState onExampleClick={handleExampleClick} questionCount={messages.filter(m => m.role === 'user').length} />
         ) : (
           <ChatMessages messages={messages} isLoading={isLoading} />
         )}
