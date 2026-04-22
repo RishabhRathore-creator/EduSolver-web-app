@@ -1,100 +1,190 @@
 // app/components/ChatInput.tsx
 'use client';
 
-import { useState, KeyboardEvent } from 'react';
+import { useState, KeyboardEvent, useRef, useEffect } from 'react';
 
 type ChatInputProps = {
   onSubmit: (question: string) => void;
-  // ↑ When the student hits Send, this component calls onSubmit with
-  // the question string. The parent (Solve/page.tsx) handles the API call.
   isLoading: boolean;
-  // ↑ When true, we disable the button and input to prevent double-submissions.
 };
 
 export default function ChatInput({ onSubmit, isLoading }: ChatInputProps) {
-  // This state lives INSIDE ChatInput — the parent doesn't need to know
-  // what the user is currently typing, only what they finally submit.
-  // This is an important judgment call: when should state live in the
-  // parent vs the child? Ask yourself: "does anyone else need this value?"
-  // If no, keep it local.
   const [inputValue, setInputValue] = useState('');
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // This function runs when the student clicks Send or presses Enter.
-  // It validates, calls onSubmit to notify the parent, then clears itself.
+  // Auto-resize textarea
+  useEffect(() => {
+    const ta = textareaRef.current;
+    if (!ta) return;
+    ta.style.height = 'auto';
+    ta.style.height = Math.min(ta.scrollHeight, 160) + 'px';
+  }, [inputValue]);
+
   const handleSend = () => {
-    // trim() removes leading/trailing whitespace — so a string of just
-    // spaces doesn't count as a real question.
     if (!inputValue.trim() || isLoading) return;
-
     onSubmit(inputValue.trim());
-    setInputValue(''); // Clear the input after submitting — clean UX
+    setInputValue('');
   };
 
-  // This runs on every keypress inside the textarea.
-  // We want Enter to submit, but Shift+Enter to add a new line
-  // (standard behaviour for chat apps).
-  // e.key tells us which key was pressed. e.shiftKey is true if
-  // the Shift key was held at the same time.
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault(); // Stops the default browser behavior (adding a newline)
+      e.preventDefault();
       handleSend();
     }
   };
 
+  const charCount = inputValue.length;
+  const isOverLimit = charCount > 800;
+
   return (
-    <div className="bg-white border-t border-gray-200 px-4 py-4">
-      <div className="max-w-4xl mx-auto">
-
-        {/* Hint text */}
-        <p className="text-xs text-gray-400 mb-2">
-          Press Enter to send · Shift+Enter for new line
-        </p>
-
-        <div className="flex gap-3 items-end">
-          {/*
-            items-end → aligns the button to the bottom of the textarea
-            as the textarea grows taller when the student types more.
-          */}
-
+    <div
+      style={{
+        background: 'rgba(13,17,23,0.95)',
+        backdropFilter: 'blur(16px)',
+        borderTop: '1px solid #21262d',
+        padding: '16px 24px 20px',
+      }}
+    >
+      <div style={{ maxWidth: 860, margin: '0 auto' }}>
+        {/* Input container */}
+        <div
+          style={{
+            background: '#161b22',
+            border: `1px solid ${isOverLimit ? '#f87171' : inputValue ? '#2dd4bf40' : '#21262d'}`,
+            borderRadius: 16,
+            transition: 'border-color 0.2s, box-shadow 0.2s',
+            boxShadow: inputValue && !isOverLimit ? '0 0 0 3px rgba(45,212,191,0.06)' : 'none',
+            overflow: 'hidden',
+          }}
+        >
           <textarea
+            ref={textareaRef}
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
-            // ↑ Every keystroke updates our local state.
-            // This makes it a "controlled input" — React always knows
-            // exactly what's in the box.
             onKeyDown={handleKeyDown}
-            placeholder="Ask any STEM question... e.g. Solve x² − 5x + 6 = 0"
-            rows={3}
+            placeholder="Ask anything — algebra, calculus, Newton's laws, periodic table..."
             disabled={isLoading}
-            // disabled prevents typing while the AI is responding
-            className="flex-1 resize-none border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-teal-400 disabled:bg-gray-50 disabled:text-gray-400 transition-all"
+            rows={1}
+            style={{
+              width: '100%',
+              background: 'transparent',
+              border: 'none',
+              outline: 'none',
+              resize: 'none',
+              padding: '16px 20px 4px',
+              fontSize: 14,
+              color: '#e6edf3',
+              fontFamily: "'DM Sans', sans-serif",
+              lineHeight: 1.6,
+              minHeight: 52,
+              caretColor: '#2dd4bf',
+            }}
           />
 
-          <button
-            onClick={handleSend}
-            disabled={isLoading || !inputValue.trim()}
-            // ↑ Also disabled when the input is empty — no point sending nothing.
-            className="bg-teal-500 hover:bg-teal-600 disabled:bg-gray-200 disabled:cursor-not-allowed text-white font-semibold px-5 py-3 rounded-xl transition-colors text-sm flex items-center gap-2 whitespace-nowrap"
+          {/* Bottom bar of input */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '8px 16px 12px',
+            }}
           >
-            {/* Conditionally show spinner or send icon based on loading state */}
-            {isLoading ? (
-              <>
-                {/* This CSS spinner uses a border trick — a circle with one
-                    colored side that rotates. The 'animate-spin' class is
-                    built into Tailwind and applies a 1-second spin animation. */}
-                <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                Solving...
-              </>
-            ) : (
-              <>
-                <span>⚡</span>
-                Solve
-              </>
-            )}
-          </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <span
+                style={{
+                  fontSize: 11,
+                  color: '#8b949e',
+                  fontFamily: "'DM Mono', monospace",
+                  letterSpacing: '0.04em',
+                }}
+              >
+                ↵ send · ⇧↵ newline
+              </span>
+              {charCount > 0 && (
+                <span
+                  style={{
+                    fontSize: 11,
+                    color: isOverLimit ? '#f87171' : '#8b949e',
+                    fontFamily: "'DM Mono', monospace",
+                  }}
+                >
+                  {charCount}/800
+                </span>
+              )}
+            </div>
+
+            <button
+              onClick={handleSend}
+              disabled={isLoading || !inputValue.trim() || isOverLimit}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                background:
+                  isLoading || !inputValue.trim() || isOverLimit
+                    ? '#21262d'
+                    : 'linear-gradient(135deg, #2dd4bf, #0891b2)',
+                color: isLoading || !inputValue.trim() || isOverLimit ? '#8b949e' : '#0d1117',
+                border: 'none',
+                borderRadius: 10,
+                padding: '9px 18px',
+                fontSize: 13,
+                fontWeight: 600,
+                fontFamily: "'DM Sans', sans-serif",
+                cursor:
+                  isLoading || !inputValue.trim() || isOverLimit ? 'not-allowed' : 'pointer',
+                transition: 'all 0.2s',
+                whiteSpace: 'nowrap',
+                boxShadow:
+                  !isLoading && inputValue.trim() && !isOverLimit
+                    ? '0 4px 16px rgba(45,212,191,0.3)'
+                    : 'none',
+              }}
+            >
+              {isLoading ? (
+                <>
+                  <span
+                    style={{
+                      width: 14,
+                      height: 14,
+                      border: '2px solid #8b949e',
+                      borderTopColor: 'transparent',
+                      borderRadius: '50%',
+                      display: 'inline-block',
+                      animation: 'spin 0.8s linear infinite',
+                    }}
+                  />
+                  Solving…
+                </>
+              ) : (
+                <>
+                  <span>⚡</span>
+                  Solve
+                </>
+              )}
+            </button>
+          </div>
         </div>
+
+        <p
+          style={{
+            textAlign: 'center',
+            fontSize: 11,
+            color: '#8b949e',
+            fontFamily: "'DM Mono', monospace",
+            letterSpacing: '0.04em',
+            marginTop: 10,
+          }}
+        >
+          Your questions are stored locally on your device only
+        </p>
       </div>
+
+      <style>{`
+        @keyframes spin { to { transform: rotate(360deg); } }
+        textarea::placeholder { color: #8b949e; }
+      `}</style>
     </div>
   );
 }

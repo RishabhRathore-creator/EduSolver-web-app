@@ -1,9 +1,6 @@
 // app/components/ChatMessages.tsx
 'use client';
 
-// We re-use the same types we defined in Solve/page.tsx.
-// In a real project you'd put these in a separate types.ts file
-// and import from there — but for now let's define them here too.
 type Step = {
   stepNumber: number;
   title: string;
@@ -22,7 +19,7 @@ type Message = {
   id: string;
   role: 'user' | 'assistant';
   content: string | SolverResult;
-  timestamp: Date;
+  timestamp: string;
 };
 
 type ChatMessagesProps = {
@@ -30,44 +27,108 @@ type ChatMessagesProps = {
   isLoading: boolean;
 };
 
-// ── Sub-component: UserBubble ─────────────────────────────────────────────
-// We define small helper components right in the same file when they're
-// only used here and are simple enough. This keeps related code together.
-// It takes a single string and renders it as a chat bubble on the right.
-
 function UserBubble({ content }: { content: string }) {
   return (
-    <div className="flex justify-end mb-6">
-      <div className="bg-teal-500 text-white rounded-2xl rounded-tr-sm px-5 py-3 max-w-xl text-sm leading-relaxed shadow-sm">
-        {content}
+    <div className="flex justify-end mb-6 group">
+      <div className="relative max-w-xl">
+        <div
+          style={{
+            background: 'linear-gradient(135deg, #2dd4bf 0%, #0891b2 100%)',
+            borderRadius: '20px 20px 4px 20px',
+            padding: '14px 20px',
+            fontSize: 14,
+            lineHeight: 1.65,
+            color: '#fff',
+            boxShadow: '0 4px 20px rgba(45,212,191,0.25)',
+            fontFamily: "'DM Sans', sans-serif",
+          }}
+        >
+          {content}
+        </div>
       </div>
     </div>
   );
 }
 
-// ── Sub-component: StepCard ───────────────────────────────────────────────
-// Renders one step from the model's response. The stepNumber is displayed
-// as a colored circle, and the calculation (if it exists) gets a special
-// monospace code-style box — important for maths readability.
-
-function StepCard({ step }: { step: Step }) {
+function StepCard({ step, index }: { step: Step; index: number }) {
   return (
-    <div className="flex gap-4 mb-4">
-      {/* Step number circle */}
-      <div className="flex-shrink-0 w-8 h-8 rounded-full bg-teal-500 text-white text-sm font-bold flex items-center justify-center">
+    <div
+      style={{
+        display: 'flex',
+        gap: 16,
+        marginBottom: 16,
+        opacity: 1,
+        animation: `fadeSlideIn 0.4s ease ${index * 0.08}s both`,
+      }}
+    >
+      <div
+        style={{
+          flexShrink: 0,
+          width: 36,
+          height: 36,
+          borderRadius: 10,
+          background: 'linear-gradient(135deg, #2dd4bf, #0891b2)',
+          color: '#fff',
+          fontSize: 13,
+          fontWeight: 700,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontFamily: "'DM Mono', monospace",
+          boxShadow: '0 4px 12px rgba(45,212,191,0.3)',
+        }}
+      >
         {step.stepNumber}
       </div>
 
-      <div className="flex-1 bg-white rounded-xl border border-gray-100 p-4 shadow-sm">
-        <h4 className="font-semibold text-gray-800 text-sm mb-1">{step.title}</h4>
-        <p className="text-gray-600 text-sm leading-relaxed">{step.explanation}</p>
+      <div
+        style={{
+          flex: 1,
+          background: '#161b22',
+          borderRadius: 14,
+          border: '1px solid #21262d',
+          padding: '16px 20px',
+          transition: 'border-color 0.2s',
+        }}
+      >
+        <h4
+          style={{
+            fontSize: 13,
+            fontWeight: 600,
+            color: '#e6edf3',
+            marginBottom: 6,
+            fontFamily: "'DM Sans', sans-serif",
+            letterSpacing: '-0.01em',
+          }}
+        >
+          {step.title}
+        </h4>
+        <p
+          style={{
+            fontSize: 13,
+            color: '#8b949e',
+            lineHeight: 1.65,
+            fontFamily: "'DM Sans', sans-serif",
+          }}
+        >
+          {step.explanation}
+        </p>
 
-        {/* Only render the calculation box if the model provided one.
-            The && operator short-circuits: if step.calculation is falsy
-            (undefined, empty string), nothing renders. This is the React
-            way of saying "render this only if the condition is true." */}
         {step.calculation && (
-          <div className="mt-3 bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 font-mono text-sm text-slate-700">
+          <div
+            style={{
+              marginTop: 12,
+              background: '#0d1117',
+              border: '1px solid #30363d',
+              borderRadius: 10,
+              padding: '12px 16px',
+              fontFamily: "'DM Mono', monospace",
+              fontSize: 13,
+              color: '#2dd4bf',
+              letterSpacing: '0.02em',
+              overflowX: 'auto',
+            }}
+          >
             {step.calculation}
           </div>
         )}
@@ -76,66 +137,151 @@ function StepCard({ step }: { step: Step }) {
   );
 }
 
-// ── Sub-component: AssistantCard ──────────────────────────────────────────
-// Renders the full AI response: all steps + the three pedagogical sections.
-// This component receives a SolverResult object (not a raw string).
-
 function AssistantCard({ result }: { result: SolverResult }) {
   return (
-    <div className="mb-8">
+    <div style={{ marginBottom: 32 }}>
+      {/* AI badge */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 20 }}>
+        <div
+          style={{
+            width: 28,
+            height: 28,
+            borderRadius: 8,
+            background: 'linear-gradient(135deg, #161b22, #21262d)',
+            border: '1px solid #30363d',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: 14,
+          }}
+        >
+          🎓
+        </div>
+        <span
+          style={{
+            fontSize: 12,
+            fontWeight: 600,
+            color: '#2dd4bf',
+            fontFamily: "'DM Mono', monospace",
+            letterSpacing: '0.06em',
+            textTransform: 'uppercase',
+          }}
+        >
+          EduSolver · Solution
+        </span>
+        <div
+          style={{
+            height: 1,
+            flex: 1,
+            background: 'linear-gradient(90deg, #21262d, transparent)',
+          }}
+        />
+      </div>
 
-      {/* Steps section */}
-      <div className="mb-6">
-        <h3 className="text-xs font-bold uppercase tracking-widest text-teal-600 mb-4">
+      {/* Steps */}
+      <div style={{ marginBottom: 20 }}>
+        <p
+          style={{
+            fontSize: 10,
+            fontWeight: 700,
+            color: '#8b949e',
+            fontFamily: "'DM Mono', monospace",
+            letterSpacing: '0.1em',
+            textTransform: 'uppercase',
+            marginBottom: 14,
+          }}
+        >
           Step-by-Step Solution
-        </h3>
-
-        {/* .map() is how you turn an array into JSX in React.
-            It loops over result.steps and calls our StepCard function
-            for each one, returning JSX. The 'key' prop is required by
-            React whenever you create elements from an array — React uses
-            it internally to track which element is which when the list
-            updates. Always use a stable unique value (not the array index
-            if the list can change order). */}
-        {result.steps.map((step) => (
-          <StepCard key={step.stepNumber} step={step} />
+        </p>
+        {result.steps.map((step, i) => (
+          <StepCard key={step.stepNumber} step={step} index={i} />
         ))}
       </div>
 
-      {/* Pedagogical sections — three colored info boxes */}
-      <div className="grid grid-cols-1 gap-3">
-
-        {/* Pedagogical Note — teal left border */}
+      {/* Insight cards */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 10 }}>
         {result.pedagogicalNote && (
-          <div className="bg-teal-50 border-l-4 border-teal-400 rounded-r-xl px-4 py-3">
-            <p className="text-xs font-bold text-teal-700 uppercase tracking-wide mb-1">
+          <div
+            style={{
+              background: 'linear-gradient(135deg, rgba(45,212,191,0.06), rgba(45,212,191,0.02))',
+              border: '1px solid rgba(45,212,191,0.2)',
+              borderLeft: '3px solid #2dd4bf',
+              borderRadius: '0 12px 12px 0',
+              padding: '14px 18px',
+            }}
+          >
+            <p
+              style={{
+                fontSize: 10,
+                fontWeight: 700,
+                color: '#2dd4bf',
+                fontFamily: "'DM Mono', monospace",
+                letterSpacing: '0.1em',
+                textTransform: 'uppercase',
+                marginBottom: 6,
+              }}
+            >
               📖 Pedagogical Note
             </p>
-            <p className="text-sm text-teal-800 leading-relaxed">
+            <p style={{ fontSize: 13, color: '#8b949e', lineHeight: 1.65, fontFamily: "'DM Sans', sans-serif" }}>
               {result.pedagogicalNote}
             </p>
           </div>
         )}
 
-        {/* Common Mistake — red left border */}
         {result.commonMistake && (
-          <div className="bg-red-50 border-l-4 border-red-400 rounded-r-xl px-4 py-3">
-            <p className="text-xs font-bold text-red-700 uppercase tracking-wide mb-1">
+          <div
+            style={{
+              background: 'linear-gradient(135deg, rgba(248,113,113,0.06), rgba(248,113,113,0.02))',
+              border: '1px solid rgba(248,113,113,0.2)',
+              borderLeft: '3px solid #f87171',
+              borderRadius: '0 12px 12px 0',
+              padding: '14px 18px',
+            }}
+          >
+            <p
+              style={{
+                fontSize: 10,
+                fontWeight: 700,
+                color: '#f87171',
+                fontFamily: "'DM Mono', monospace",
+                letterSpacing: '0.1em',
+                textTransform: 'uppercase',
+                marginBottom: 6,
+              }}
+            >
               ⚠️ Common Mistake
             </p>
-            <p className="text-sm text-red-800 leading-relaxed">
+            <p style={{ fontSize: 13, color: '#8b949e', lineHeight: 1.65, fontFamily: "'DM Sans', sans-serif" }}>
               {result.commonMistake}
             </p>
           </div>
         )}
 
-        {/* Exam Tip — amber left border */}
         {result.examTip && (
-          <div className="bg-amber-50 border-l-4 border-amber-400 rounded-r-xl px-4 py-3">
-            <p className="text-xs font-bold text-amber-700 uppercase tracking-wide mb-1">
+          <div
+            style={{
+              background: 'linear-gradient(135deg, rgba(251,191,36,0.06), rgba(251,191,36,0.02))',
+              border: '1px solid rgba(251,191,36,0.2)',
+              borderLeft: '3px solid #fbbf24',
+              borderRadius: '0 12px 12px 0',
+              padding: '14px 18px',
+            }}
+          >
+            <p
+              style={{
+                fontSize: 10,
+                fontWeight: 700,
+                color: '#fbbf24',
+                fontFamily: "'DM Mono', monospace",
+                letterSpacing: '0.1em',
+                textTransform: 'uppercase',
+                marginBottom: 6,
+              }}
+            >
               🎯 Exam Tip
             </p>
-            <p className="text-sm text-amber-800 leading-relaxed">
+            <p style={{ fontSize: 13, color: '#8b949e', lineHeight: 1.65, fontFamily: "'DM Sans', sans-serif" }}>
               {result.examTip}
             </p>
           </div>
@@ -145,64 +291,86 @@ function AssistantCard({ result }: { result: SolverResult }) {
   );
 }
 
-// ── Sub-component: LoadingDots ────────────────────────────────────────────
-// A simple animated "thinking" indicator shown while the AI is responding.
-// The three dots use CSS animation-delay to stagger their bounce,
-// creating the classic typing indicator effect.
-
 function LoadingDots() {
   return (
-    <div className="flex items-center gap-1 mb-6 px-2">
-      <span className="text-xs text-gray-400 mr-2">EduSolver is thinking</span>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 24, padding: '0 4px' }}>
+      <div
+        style={{
+          width: 28,
+          height: 28,
+          borderRadius: 8,
+          background: '#161b22',
+          border: '1px solid #30363d',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontSize: 14,
+        }}
+      >
+        🎓
+      </div>
+      <span style={{ fontSize: 12, color: '#8b949e', fontFamily: "'DM Mono', monospace", letterSpacing: '0.04em' }}>
+        Solving
+      </span>
       {[0, 1, 2].map((i) => (
         <span
           key={i}
-          className="w-2 h-2 bg-teal-400 rounded-full animate-bounce"
-          style={{ animationDelay: `${i * 0.15}s` }}
-          // animationDelay staggers each dot by 0.15s so they bounce in sequence
+          style={{
+            width: 6,
+            height: 6,
+            borderRadius: '50%',
+            background: '#2dd4bf',
+            display: 'inline-block',
+            animation: 'bounce 1.2s ease infinite',
+            animationDelay: `${i * 0.2}s`,
+          }}
         />
       ))}
     </div>
   );
 }
 
-// ── Main Component ────────────────────────────────────────────────────────
-
 export default function ChatMessages({ messages, isLoading }: ChatMessagesProps) {
   return (
-    <div className="space-y-2">
-      {/* space-y-2 adds vertical gap between each child element */}
-
-      {messages.map((message) => {
-        // For each message, we check the role and render the appropriate component.
-        if (message.role === 'user') {
-          // User messages are always strings — the student typed them.
-          // We cast content as string since we know this is true for 'user' role.
-          return <UserBubble key={message.id} content={message.content as string} />;
+    <>
+      <style>{`
+        @keyframes fadeSlideIn {
+          from { opacity: 0; transform: translateY(12px); }
+          to { opacity: 1; transform: translateY(0); }
         }
-
-        // Assistant messages contain a SolverResult object.
-        // typeof check: if the model somehow returned a plain string
-        // (maybe it didn't format JSON correctly), we show it as-is
-        // rather than crashing.
-        if (typeof message.content === 'string') {
-          return (
-            <div key={message.id} className="bg-white rounded-xl p-4 border border-gray-100 text-sm text-gray-700 mb-6">
-              {message.content}
-            </div>
-          );
+        @keyframes bounce {
+          0%, 60%, 100% { transform: translateY(0); }
+          30% { transform: translateY(-6px); }
         }
-
-        return (
-          <AssistantCard
-            key={message.id}
-            result={message.content as SolverResult}
-          />
-        );
-      })}
-
-      {/* Show the loading animation at the bottom when waiting for AI */}
-      {isLoading && <LoadingDots />}
-    </div>
+      `}</style>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        {messages.map((message) => {
+          if (message.role === 'user') {
+            return <UserBubble key={message.id} content={message.content as string} />;
+          }
+          if (typeof message.content === 'string') {
+            return (
+              <div
+                key={message.id}
+                style={{
+                  background: '#161b22',
+                  border: '1px solid #21262d',
+                  borderRadius: 14,
+                  padding: '16px 20px',
+                  fontSize: 13,
+                  color: '#8b949e',
+                  marginBottom: 24,
+                  fontFamily: "'DM Sans', sans-serif",
+                }}
+              >
+                {message.content}
+              </div>
+            );
+          }
+          return <AssistantCard key={message.id} result={message.content as SolverResult} />;
+        })}
+        {isLoading && <LoadingDots />}
+      </div>
+    </>
   );
 }

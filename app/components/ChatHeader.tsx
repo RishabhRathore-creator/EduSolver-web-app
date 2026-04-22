@@ -1,20 +1,33 @@
 // app/components/ChatHeader.tsx
 'use client';
-// Needs 'use client' because it handles onChange events (browser interactions)
 
-// We define the shape of props this component accepts using a TypeScript type.
-// Every prop that Solve/page.tsx passes must match this definition exactly.
-// If you forget to pass onClassChange, TypeScript will underline it in red
-// immediately — before you even run the app. This is TypeScript's superpower.
+import Link from 'next/link';
+
 type ChatHeaderProps = {
   classLevel: string;
   subject: string;
   examMode: string;
   onClassChange: (value: string) => void;
-  // ↑ This says: onClassChange is a function that receives a string and
-  // returns nothing (void). The parent will pass setClassLevel here.
   onSubjectChange: (value: string) => void;
   onExamModeChange: (value: string) => void;
+};
+
+const selectStyle: React.CSSProperties = {
+  background: '#161b22',
+  border: '1px solid #21262d',
+  borderRadius: 10,
+  padding: '8px 32px 8px 12px',
+  fontSize: 13,
+  color: '#e6edf3',
+  fontFamily: "'DM Sans', sans-serif",
+  cursor: 'pointer',
+  outline: 'none',
+  appearance: 'none',
+  WebkitAppearance: 'none',
+  backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%238b949e' d='M6 8L1 3h10z'/%3E%3C/svg%3E")`,
+  backgroundRepeat: 'no-repeat',
+  backgroundPosition: 'right 10px center',
+  transition: 'border-color 0.2s',
 };
 
 export default function ChatHeader({
@@ -25,80 +38,150 @@ export default function ChatHeader({
   onSubjectChange,
   onExamModeChange,
 }: ChatHeaderProps) {
-  // Notice we destructure props directly in the function signature.
-  // This is equivalent to writing:
-  //   function ChatHeader(props) { const { classLevel, ... } = props; }
-  // but cleaner. The : ChatHeaderProps part tells TypeScript what shape
-  // to expect so it can catch mistakes.
-
   return (
-    <header className="bg-white border-b border-gray-200 px-4 py-3 sticky top-0 z-10">
-      {/*
-        sticky top-0  → stays at the top of the screen when you scroll
-        z-10          → sits above the message content visually
-      */}
-      <div className="max-w-4xl mx-auto flex items-center justify-between flex-wrap gap-3">
-
-        {/* Logo / title */}
-        <div className="flex items-center gap-2">
-          <span className="text-xl">🎓</span>
-          <span className="font-semibold text-gray-800 text-lg">EduSolver</span>
-        </div>
-
-        {/* Dropdowns row */}
-        <div className="flex items-center gap-3 flex-wrap">
-
-          {/* 
-            Each <select> is a "controlled input" — its value is always
-            driven by the prop from the parent (e.g. classLevel).
-            onChange fires every time the user picks a new option.
-            e is the browser's event object, e.target.value is the
-            string value of the option they selected.
-            We pass that string straight up to the parent via onClassChange.
-          */}
-          <label className="sr-only" htmlFor="classLevel-select">Class Level</label>
-          <select
-            id="classLevel-select"
-            aria-label="Class Level"
-            value={classLevel}
-            onChange={(e) => onClassChange(e.target.value)}
-            className="text-sm border border-gray-200 rounded-lg px-3 py-2 bg-gray-50 text-gray-700 focus:outline-none focus:ring-2 focus:ring-teal-400 cursor-pointer"
+    <header
+      style={{
+        background: 'rgba(13,17,23,0.95)',
+        backdropFilter: 'blur(16px)',
+        WebkitBackdropFilter: 'blur(16px)',
+        borderBottom: '1px solid #21262d',
+        padding: '0 24px',
+        position: 'sticky',
+        top: 0,
+        zIndex: 50,
+      }}
+    >
+      <div
+        style={{
+          maxWidth: 1080,
+          margin: '0 auto',
+          height: 60,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 16,
+        }}
+      >
+        {/* Logo */}
+        <Link
+          href="/"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            textDecoration: 'none',
+            flexShrink: 0,
+          }}
+        >
+          <span style={{ fontSize: 18 }}>🎓</span>
+          <span
+            style={{
+              fontFamily: "'DM Serif Display', serif",
+              fontSize: 17,
+              color: '#e6edf3',
+              letterSpacing: '-0.02em',
+            }}
           >
-            <option>Class 8</option>
-            <option>Class 9</option>
-            <option>Class 10</option>
-            <option>Class 11</option>
-            <option>Class 12</option>
-          </select>
-
-          <label className="sr-only" htmlFor="subject-select">Subject</label>
-          <select
-            id="subject-select"
-            aria-label="Subject"
-            value={subject}
-            onChange={(e) => onSubjectChange(e.target.value)}
-            className="text-sm border border-gray-200 rounded-lg px-3 py-2 bg-gray-50 text-gray-700 focus:outline-none focus:ring-2 focus:ring-teal-400 cursor-pointer"
+            EduSolver
+          </span>
+          <span
+            style={{
+              fontSize: 10,
+              fontFamily: "'DM Mono', monospace",
+              color: '#2dd4bf',
+              background: 'rgba(45,212,191,0.1)',
+              border: '1px solid rgba(45,212,191,0.2)',
+              padding: '2px 8px',
+              borderRadius: 999,
+              letterSpacing: '0.06em',
+            }}
           >
-            <option>Mathematics</option>
-            <option>Physics</option>
-            <option>Chemistry</option>
-          </select>
+            SOLVE
+          </span>
+        </Link>
 
-          <label className="sr-only" htmlFor="examMode-select">Exam Mode</label>
-          <select
-            id="examMode-select"
-            aria-label="Exam Mode"
-            value={examMode}
-            onChange={(e) => onExamModeChange(e.target.value)}
-            className="text-sm border border-gray-200 rounded-lg px-3 py-2 bg-gray-50 text-gray-700 focus:outline-none focus:ring-2 focus:ring-teal-400 cursor-pointer"
+        {/* Controls */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          {/* Class */}
+          <div style={{ position: 'relative' }}>
+            <label className="sr-only" htmlFor="classLevel-select">Class Level</label>
+            <select
+              id="classLevel-select"
+              value={classLevel}
+              onChange={(e) => onClassChange(e.target.value)}
+              style={selectStyle}
+              onFocus={(e) => (e.target.style.borderColor = '#2dd4bf40')}
+              onBlur={(e) => (e.target.style.borderColor = '#21262d')}
+            >
+              <option>Class 8</option>
+              <option>Class 9</option>
+              <option>Class 10</option>
+              <option>Class 11</option>
+              <option>Class 12</option>
+            </select>
+          </div>
+
+          {/* Subject */}
+          <div style={{ position: 'relative' }}>
+            <label className="sr-only" htmlFor="subject-select">Subject</label>
+            <select
+              id="subject-select"
+              value={subject}
+              onChange={(e) => onSubjectChange(e.target.value)}
+              style={selectStyle}
+              onFocus={(e) => (e.target.style.borderColor = '#2dd4bf40')}
+              onBlur={(e) => (e.target.style.borderColor = '#21262d')}
+            >
+              <option>Mathematics</option>
+              <option>Physics</option>
+              <option>Chemistry</option>
+            </select>
+          </div>
+
+          {/* Exam Mode */}
+          <div style={{ position: 'relative' }}>
+            <label className="sr-only" htmlFor="examMode-select">Exam Mode</label>
+            <select
+              id="examMode-select"
+              value={examMode}
+              onChange={(e) => onExamModeChange(e.target.value)}
+              style={selectStyle}
+              onFocus={(e) => (e.target.style.borderColor = '#2dd4bf40')}
+              onBlur={(e) => (e.target.style.borderColor = '#21262d')}
+            >
+              <option>Board Exam (CBSE)</option>
+              <option>Competitive (JEE)</option>
+              <option>Competitive (NEET)</option>
+              <option>Concept Mode</option>
+            </select>
+          </div>
+
+          {/* Privacy badge */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 5,
+              fontSize: 11,
+              color: '#2dd4bf',
+              fontFamily: "'DM Mono', monospace",
+              background: 'rgba(45,212,191,0.08)',
+              border: '1px solid rgba(45,212,191,0.15)',
+              padding: '5px 10px',
+              borderRadius: 8,
+              letterSpacing: '0.04em',
+              flexShrink: 0,
+            }}
           >
-            <option>Board Exam (CBSE)</option>
-            <option>Competitive (JEE)</option>
-            <option>Competitive (NEET)</option>
-            <option>Concept Mode</option>
-          </select>
+            🔒 Local-only
+          </div>
         </div>
       </div>
+
+      <style>{`
+        select option { background: #161b22; color: #e6edf3; }
+        select:hover { border-color: #30363d !important; }
+      `}</style>
     </header>
   );
 }

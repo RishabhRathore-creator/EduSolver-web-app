@@ -1,517 +1,707 @@
-// app/page.tsx
-// Server Component — no 'use client' needed.
-// All hover effects are pure CSS (no event handlers) so this stays server-renderable.
+// app/solve/page.tsx
+// All question history is stored in localStorage — never sent to any server.
+'use client';
 
-import Link from 'next/link';
-import { Show, SignInButton, SignUpButton, UserButton } from '@clerk/nextjs';
-import AnimatedSection from './components/AnimatedSection';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import ChatHeader from './components/ChatHeader';
+import ChatInput from './components/ChatInput';
+import ChatMessages from './components/ChatMessages';
+import EmptyChatState from './components/EmptyChatState';
 
-const STATS = [
-  { value: '300+', label: 'Curated Questions' },
-  { value: '40+', label: 'NCERT Chapters' },
-  { value: 'Class 8–12', label: 'Coverage' },
-  { value: '4 Methods', label: 'Solution Types' },
-];
+// ─── Types ────────────────────────────────────────────────────────────────────
 
-const FEATURES = [
-  {
-    icon: '🧩',
-    title: 'Step-by-Step Reasoning',
-    description:
-      'Every solution is broken into numbered steps with explanations of what we do and why — not just the answer.',
-  },
-  {
-    icon: '📐',
-    title: 'Multi-Method Solutions',
-    description:
-      'Algebraic, graphical, numerical, and conceptual approaches — see the same problem from four angles.',
-  },
-  {
-    icon: '🎯',
-    title: 'Exam-Aligned Output',
-    description:
-      'Responses are tailored to Board (CBSE), JEE, or NEET — formatted exactly as examiners expect.',
-  },
-  {
-    icon: '⚠️',
-    title: 'Common Mistakes Highlighted',
-    description:
-      'Each solution flags the exact error students most often make, so you learn what not to do.',
-  },
-  {
-    icon: '📖',
-    title: 'Pedagogical Notes',
-    description:
-      'The deeper concept behind each problem — building intuition, not just pattern-matching.',
-  },
-  {
-    icon: '🤖',
-    title: 'Fine-Tuned on NCERT Data',
-    description:
-      'Powered by a custom LoRA adapter trained on our curated dataset of 300+ structured problems.',
-  },
-];
+type Step = {
+  stepNumber: number;
+  title: string;
+  explanation: string;
+  calculation?: string;
+};
 
-const PIPELINE_STEPS = [
-  {
-    number: '01',
-    title: 'Problem Interpretation',
-    description: 'The model identifies the problem type, relevant concepts, and student context.',
-  },
-  {
-    number: '02',
-    title: 'Step-Wise Solution',
-    description: 'A structured solution is generated with clear intermediate steps and calculations.',
-  },
-  {
-    number: '03',
-    title: 'Pedagogical Enrichment',
-    description: 'Conceptual notes, common mistakes, and exam-specific tips are layered in.',
-  },
-  {
-    number: '04',
-    title: 'Logical Verification',
-    description: 'The solution is cross-checked for mathematical consistency before delivery.',
-  },
-];
+type SolverResult = {
+  steps: Step[];
+  pedagogicalNote: string;
+  commonMistake: string;
+  examTip: string;
+};
 
-export default function HomePage() {
+type Message = {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string | SolverResult;
+  timestamp: string; // ISO string — safe for JSON serialisation
+};
+
+// One conversation session stored locally
+type Session = {
+  id: string;
+  title: string;
+  classLevel: string;
+  subject: string;
+  examMode: string;
+  messages: Message[];
+  createdAt: string;
+};
+
+// ─── localStorage helpers — all data stays on the user's device ───────────────
+
+const STORAGE_KEY = 'edusolver_sessions_v1';
+
+function loadSessions(): Session[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveSessions(sessions: Session[]) {
+  try {
+    // Keep only the last 50 sessions to avoid bloating storage
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(sessions.slice(0, 50)));
+  } catch {
+    // Storage full or unavailable — fail silently
+  }
+}
+
+function makeSessionTitle(question: string): string {
+  return question.length > 50 ? question.slice(0, 50) + '…' : question;
+}
+
+// ─── Main Component ───────────────────────────────────────────────────────────
+
+export default function SolvePage() {
+  // Config state
+  const [classLevel, setClassLevel] = useState('Class 10');
+  const [subject, setSubject] = useState('Mathematics');
+  const [examMode, setExamMode] = useState('Board Exam (CBSE)');
+
+  // Session / history state — hydrated from localStorage on mount
+  const [sessions, setSessions] = useState<Session[]>([]);
+  const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [hydrated, setHydrated] = useState(false);
+
+  const bottomRef = useRef<HTMLDivElement>(null);
+
+  // Load from localStorage once on mount (client-only)
+  useEffect(() => {
+    const stored = loadSessions();
+    setSessions(stored);
+    if (stored.length > 0) setActiveSessionId(stored[0].id);
+    setHydrated(true);
+  }, []);
+
+  // Persist sessions whenever they change
+  useEffect(() => {
+    if (hydrated) saveSessions(sessions);
+  }, [sessions, hydrated]);
+
+  // Auto-scroll to bottom on new messages
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [sessions, activeSessionId]);
+
+  // Derive active session's messages
+  const activeSession = sessions.find((s) => s.id === activeSessionId) ?? null;
+  const messages = activeSession?.messages ?? [];
+
+  // ── Handlers ──────────────────────────────────────────────────────────────
+
+  const createNewSession = useCallback(() => {
+    const id = `session-${Date.now()}`;
+    const session: Session = {
+      id,
+      title: 'New session',
+      classLevel,
+      subject,
+      examMode,
+      messages: [],
+      createdAt: new Date().toISOString(),
+    };
+    setSessions((prev) => [session, ...prev]);
+    setActiveSessionId(id);
+    setSidebarOpen(false);
+  }, [classLevel, subject, examMode]);
+
+  const deleteSession = (sessionId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSessions((prev) => {
+      const next = prev.filter((s) => s.id !== sessionId);
+      if (activeSessionId === sessionId) {
+        setActiveSessionId(next[0]?.id ?? null);
+      }
+      return next;
+    });
+  };
+
+  const clearAllHistory = () => {
+    if (!confirm('Clear all conversation history from this device?')) return;
+    setSessions([]);
+    setActiveSessionId(null);
+    localStorage.removeItem(STORAGE_KEY);
+  };
+
+  const handleSubmit = async (question: string) => {
+    if (isLoading || !question.trim()) return;
+    setError(null);
+
+    let sessionId = activeSessionId;
+
+    // Create a new session if none is active
+    if (!sessionId) {
+      const id = `session-${Date.now()}`;
+      const session: Session = {
+        id,
+        title: makeSessionTitle(question),
+        classLevel,
+        subject,
+        examMode,
+        messages: [],
+        createdAt: new Date().toISOString(),
+      };
+      setSessions((prev) => [session, ...prev]);
+      setActiveSessionId(id);
+      sessionId = id;
+    }
+
+    const userMsg: Message = {
+      id: `user-${Date.now()}`,
+      role: 'user',
+      content: question,
+      timestamp: new Date().toISOString(),
+    };
+
+    // Add user message and update session title if first message
+    setSessions((prev) =>
+      prev.map((s) =>
+        s.id === sessionId
+          ? {
+            ...s,
+            title: s.messages.length === 0 ? makeSessionTitle(question) : s.title,
+            messages: [...s.messages, userMsg],
+          }
+          : s
+      )
+    );
+
+    setIsLoading(true);
+
+    try {
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ question, classLevel, subject, examMode }),
+      });
+
+      const data = await response.json();
+
+      if (response.status === 503) {
+        setError(data.error || 'Model is warming up. Try again in 30 seconds.');
+        setIsLoading(false);
+        return;
+      }
+      if (!response.ok) throw new Error(data.error || 'Something went wrong.');
+
+      const aiMsg: Message = {
+        id: `ai-${Date.now()}`,
+        role: 'assistant',
+        content: data.result,
+        timestamp: new Date().toISOString(),
+      };
+
+      setSessions((prev) =>
+        prev.map((s) =>
+          s.id === sessionId ? { ...s, messages: [...s.messages, aiMsg] } : s
+        )
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unexpected error occurred.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const totalQuestions = sessions.reduce(
+    (sum, s) => sum + s.messages.filter((m) => m.role === 'user').length,
+    0
+  );
+
+  // ── Render ────────────────────────────────────────────────────────────────
+
   return (
-    <div
-      style={{
-        fontFamily: "'DM Sans', 'Segoe UI', sans-serif",
-        background: '#0d1117',
-        color: '#e6edf3',
-        minHeight: '100vh',
-        overflowX: 'hidden',
-      }}
-    >
+    <>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap');
-
-        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-        /* Navbar links hover — pure CSS, no JS */
-        .nav-link {
-          font-size: 14px;
-          color: #8b949e;
-          text-decoration: none;
-          transition: color 0.15s ease;
-          font-family: 'DM Sans', sans-serif;
-          background: none;
-          border: none;
-          cursor: pointer;
-        }
-        .nav-link:hover { color: #e6edf3; }
-
-        /* Primary CTA button */
-        .btn-primary {
-          display: inline-flex;
-          align-items: center;
-          gap: 10px;
-          background: #2dd4bf;
-          color: #0d1117;
-          font-family: 'DM Sans', sans-serif;
-          font-weight: 600;
-          font-size: 15px;
-          padding: 14px 28px;
-          border-radius: 12px;
-          text-decoration: none;
-          transition: background 0.2s, transform 0.2s, box-shadow 0.2s;
-          border: none;
-          cursor: pointer;
-        }
-        .btn-primary:hover {
-          background: #5eead4;
-          transform: translateY(-2px);
-          box-shadow: 0 8px 24px rgba(45,212,191,0.3);
-        }
-
-        /* Secondary outline button */
-        .btn-secondary {
-          display: inline-flex;
-          align-items: center;
-          gap: 10px;
-          background: transparent;
-          color: #e6edf3;
-          font-family: 'DM Sans', sans-serif;
-          font-weight: 500;
-          font-size: 15px;
-          padding: 13px 24px;
-          border-radius: 12px;
-          text-decoration: none;
-          border: 1px solid #21262d;
-          transition: border-color 0.2s, background 0.2s;
-        }
-        .btn-secondary:hover {
-          border-color: #8b949e;
-          background: rgba(255,255,255,0.04);
-        }
-
-        /* Feature cards */
-        .feature-card {
-          border: 1px solid #21262d;
-          background: #161b22;
-          border-radius: 16px;
-          padding: 28px;
-          transition: border-color 0.25s, background 0.25s, transform 0.25s, box-shadow 0.25s;
-        }
-        .feature-card:hover {
-          border-color: rgba(45,212,191,0.4);
-          background: rgba(45,212,191,0.04);
-          transform: translateY(-4px);
-          box-shadow: 0 12px 40px rgba(0,0,0,0.3);
-        }
-
-        /* Grid texture for hero background */
-        .grid-bg {
-          background-image:
-            linear-gradient(rgba(45,212,191,0.04) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(45,212,191,0.04) 1px, transparent 1px);
-          background-size: 48px 48px;
-          -webkit-mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, black 40%, transparent 100%);
-          mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, black 40%, transparent 100%);
-        }
-
-        /* Atmospheric glow blob in hero */
-        .hero-glow {
-          position: absolute;
-          top: -200px;
-          left: 50%;
-          transform: translateX(-50%);
-          width: 800px;
-          height: 600px;
-          background: radial-gradient(ellipse, rgba(45,212,191,0.08) 0%, transparent 70%);
-          pointer-events: none;
-        }
-
-        /* Scroll-triggered fade-up animation */
-        .fade-up {
-          opacity: 0;
-          transform: translateY(24px);
-          transition: opacity 0.7s ease, transform 0.7s ease;
-        }
-        .fade-up.visible { opacity: 1; transform: translateY(0); }
-        .fade-up:nth-child(1) { transition-delay: 0s; }
-        .fade-up:nth-child(2) { transition-delay: 0.08s; }
-        .fade-up:nth-child(3) { transition-delay: 0.16s; }
-        .fade-up:nth-child(4) { transition-delay: 0.24s; }
-        .fade-up:nth-child(5) { transition-delay: 0.32s; }
-        .fade-up:nth-child(6) { transition-delay: 0.40s; }
-
-        /* Small reusable pieces */
-        .badge {
-          display: inline-flex;
-          align-items: center;
-          gap: 6px;
-          font-size: 12px;
-          font-weight: 500;
-          font-family: 'DM Mono', monospace;
-          letter-spacing: 0.04em;
-          color: #2dd4bf;
-          background: rgba(45,212,191,0.12);
-          border: 1px solid rgba(45,212,191,0.2);
-          padding: 6px 12px;
-          border-radius: 999px;
-        }
-        .section-label {
-          font-size: 11px;
-          font-weight: 500;
-          font-family: 'DM Mono', monospace;
-          letter-spacing: 0.12em;
-          text-transform: uppercase;
-          color: #2dd4bf;
-        }
-        .step-number {
-          font-family: 'DM Mono', monospace;
-          font-size: 13px;
-          font-weight: 500;
-          color: #2dd4bf;
-          background: rgba(45,212,191,0.12);
-          border: 1px solid rgba(45,212,191,0.2);
-          width: 40px;
-          height: 40px;
-          border-radius: 10px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          flex-shrink: 0;
-        }
-        .stat-card {
-          text-align: center;
-          padding: 24px 20px;
-          border-right: 1px solid #21262d;
-          flex: 1;
-        }
-        .stat-card:last-child { border-right: none; }
-
-        /* Mobile responsive */
-        @media (max-width: 640px) {
-          .stats-strip { flex-wrap: wrap !important; }
-          .stat-card { border-right: none !important; border-bottom: 1px solid #21262d; min-width: 50%; }
-          .hero-title { font-size: 36px !important; }
-          .features-grid { grid-template-columns: 1fr !important; }
-          .pipeline-grid { grid-template-columns: 1fr 1fr !important; }
-          .cta-row { flex-direction: column !important; align-items: center; }
-          .nav-links { display: none !important; }
-        }
+        * { box-sizing: border-box; }
+        body { margin: 0; background: #0d1117; }
+        .sidebar-item:hover .del-btn { opacity: 1 !important; }
       `}</style>
 
-      {/* ── NAVBAR ── */}
-      <nav
-        style={{
-          position: 'sticky',
-          top: 0,
-          zIndex: 100,
-          background: 'rgba(13,17,23,0.85)',
-          backdropFilter: 'blur(12px)',
-          WebkitBackdropFilter: 'blur(12px)',
-          borderBottom: '1px solid #21262d',
-          padding: '0 24px',
-        }}
-      >
-        <div
+      <div style={{ display: 'flex', height: '100vh', overflow: 'hidden', background: '#0d1117' }}>
+
+        {/* ── SIDEBAR ── */}
+        {/* Mobile overlay */}
+        {sidebarOpen && (
+          <div
+            style={{
+              position: 'fixed',
+              inset: 0,
+              background: 'rgba(0,0,0,0.6)',
+              zIndex: 40,
+            }}
+            onClick={() => setSidebarOpen(false)}
+          />
+        )}
+
+        <aside
           style={{
-            maxWidth: 1080,
-            margin: '0 auto',
-            height: 64,
+            width: 260,
+            background: '#161b22',
+            borderRight: '1px solid #21262d',
             display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
+            flexDirection: 'column',
+            flexShrink: 0,
+            position: 'fixed' as const,
+            top: 0,
+            left: sidebarOpen ? 0 : -260,
+            bottom: 0,
+            zIndex: 50,
+            transition: 'left 0.25s ease',
           }}
+          className="sidebar"
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span style={{ fontSize: 22 }}>🎓</span>
-            <span
+          {/* Sidebar header */}
+          <div
+            style={{
+              padding: '16px',
+              borderBottom: '1px solid #21262d',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 10,
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span style={{ fontSize: 16 }}>🎓</span>
+                <span
+                  style={{
+                    fontFamily: "'DM Serif Display', serif",
+                    fontSize: 15,
+                    color: '#e6edf3',
+                  }}
+                >
+                  History
+                </span>
+              </div>
+              <button
+                onClick={() => setSidebarOpen(false)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: '#8b949e',
+                  cursor: 'pointer',
+                  fontSize: 16,
+                  padding: '2px 6px',
+                  borderRadius: 6,
+                }}
+                title="Close sidebar"
+              >
+                ✕
+              </button>
+            </div>
+
+            <button
+              onClick={createNewSession}
               style={{
-                fontFamily: "'DM Serif Display', serif",
-                fontSize: 20,
-                color: '#e6edf3',
-                letterSpacing: '-0.02em',
+                background: 'linear-gradient(135deg, #2dd4bf, #0891b2)',
+                border: 'none',
+                borderRadius: 10,
+                padding: '9px 14px',
+                color: '#0d1117',
+                fontSize: 13,
+                fontWeight: 600,
+                fontFamily: "'DM Sans', sans-serif",
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
               }}
             >
-              EduSolver
-            </span>
-          </div>
+              <span>＋</span> New Session
+            </button>
 
-          <div className="nav-links" style={{ display: 'flex', alignItems: 'center', gap: 32 }}>
-            <a href="#features" className="nav-link">Features</a>
-            <a href="#pipeline" className="nav-link">How it works</a>
-
-            {/* Clerk Auth Integration */}
-            <Show when="signed-out">
-              <SignInButton mode="modal">
-                <button className="nav-link">Sign In</button>
-              </SignInButton>
-              <SignUpButton mode="modal">
-                <button className="btn-primary" style={{ padding: '10px 20px', fontSize: 14 }}>
-                  Start Solving →
-                </button>
-              </SignUpButton>
-            </Show>
-
-            <Show when="signed-in">
-              <Link href="/solve" className="btn-primary" style={{ padding: '10px 20px', fontSize: 14 }}>
-                Go to Solver →
-              </Link>
-              <UserButton />
-            </Show>
-          </div>
-        </div>
-      </nav>
-
-      {/* ── HERO ── */}
-      <section
-        style={{
-          position: 'relative',
-          padding: '120px 24px 80px',
-          textAlign: 'center',
-          overflow: 'hidden',
-        }}
-      >
-        <div className="grid-bg" style={{ position: 'absolute', inset: 0 }} />
-        <div className="hero-glow" />
-
-        <div style={{ position: 'relative', maxWidth: 760, margin: '0 auto' }}>
-          <div style={{ marginBottom: 24 }}>
-            <span className="badge">⚡ Fine-tuned on NCERT · JEE · NEET Datasets</span>
-          </div>
-
-          <h1
-            className="hero-title"
-            style={{
-              fontFamily: "'DM Serif Display', serif",
-              fontSize: 58,
-              fontWeight: 400,
-              lineHeight: 1.1,
-              letterSpacing: '-0.03em',
-              marginBottom: 24,
-              color: '#e6edf3',
-            }}
-          >
-            Master STEM with{' '}
-            <span style={{ color: '#2dd4bf' }}>Multi-Agent AI</span>
-            <br />that actually teaches
-          </h1>
-
-          <p
-            style={{
-              fontSize: 18,
-              color: '#8b949e',
-              lineHeight: 1.7,
-              maxWidth: 540,
-              margin: '0 auto 40px',
-            }}
-          >
-            Step-by-step solutions with pedagogical notes, common mistake warnings,
-            and exam tips — tailored to your class, subject, and exam pattern.
-          </p>
-
-          <div
-            className="cta-row"
-            style={{ display: 'flex', gap: 16, justifyContent: 'center', flexWrap: 'wrap' }}
-          >
-            <Show when="signed-out">
-              <SignUpButton mode="modal">
-                <button className="btn-primary">
-                  Start Solving Free <span>→</span>
-                </button>
-              </SignUpButton>
-            </Show>
-            <Show when="signed-in">
-              <Link href="/solve" className="btn-primary">
-                Start Solving <span>→</span>
-              </Link>
-            </Show>
-            <a href="#features" className="btn-secondary">
-              See how it works
-            </a>
-          </div>
-
-          <p style={{ marginTop: 20, fontSize: 12, color: '#8b949e', fontFamily: "'DM Mono', monospace", letterSpacing: '0.04em' }}>
-            NCERT-aligned · Classes 8–12 · Math, Physics, Chemistry
-          </p>
-        </div>
-      </section>
-
-      {/* ── STATS STRIP ── */}
-      <div style={{ borderTop: '1px solid #21262d', borderBottom: '1px solid #21262d', background: '#161b22' }}>
-        <div className="stats-strip" style={{ maxWidth: 1080, margin: '0 auto', display: 'flex' }}>
-          {STATS.map((stat) => (
-            <div key={stat.label} className="stat-card">
-              <div style={{ fontFamily: "'DM Serif Display', serif", fontSize: 32, color: '#2dd4bf', letterSpacing: '-0.02em', marginBottom: 4 }}>
-                {stat.value}
-              </div>
-              <div style={{ fontSize: 12, color: '#8b949e', fontFamily: "'DM Mono', monospace", letterSpacing: '0.06em', textTransform: 'uppercase' }}>
-                {stat.label}
-              </div>
+            {/* Privacy note */}
+            <div
+              style={{
+                fontSize: 10,
+                color: '#2dd4bf',
+                fontFamily: "'DM Mono', monospace",
+                letterSpacing: '0.04em',
+                textAlign: 'center',
+                background: 'rgba(45,212,191,0.08)',
+                border: '1px solid rgba(45,212,191,0.12)',
+                borderRadius: 8,
+                padding: '5px 8px',
+              }}
+            >
+              🔒 Stored on your device only
             </div>
-          ))}
+          </div>
+
+          {/* Session list */}
+          <div style={{ flex: 1, overflowY: 'auto', padding: '10px 8px' }}>
+            {sessions.length === 0 ? (
+              <div
+                style={{
+                  textAlign: 'center',
+                  padding: '32px 16px',
+                  fontSize: 13,
+                  color: '#8b949e',
+                  fontFamily: "'DM Sans', sans-serif",
+                }}
+              >
+                No history yet.
+                <br />Ask your first question!
+              </div>
+            ) : (
+              <>
+                <p
+                  style={{
+                    fontSize: 9,
+                    fontWeight: 700,
+                    color: '#8b949e',
+                    fontFamily: "'DM Mono', monospace",
+                    letterSpacing: '0.1em',
+                    textTransform: 'uppercase',
+                    padding: '4px 8px 10px',
+                  }}
+                >
+                  Recent · {sessions.length} sessions
+                </p>
+                {sessions.map((session) => (
+                  <div
+                    key={session.id}
+                    className="sidebar-item"
+                    onClick={() => {
+                      setActiveSessionId(session.id);
+                      setSidebarOpen(false);
+                    }}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'flex-start',
+                      justifyContent: 'space-between',
+                      padding: '10px 10px',
+                      borderRadius: 10,
+                      cursor: 'pointer',
+                      marginBottom: 2,
+                      background: session.id === activeSessionId ? 'rgba(45,212,191,0.1)' : 'transparent',
+                      border: `1px solid ${session.id === activeSessionId ? 'rgba(45,212,191,0.2)' : 'transparent'}`,
+                      transition: 'all 0.15s',
+                    }}
+                    onMouseEnter={(e) => {
+                      if (session.id !== activeSessionId) {
+                        e.currentTarget.style.background = 'rgba(255,255,255,0.04)';
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (session.id !== activeSessionId) {
+                        e.currentTarget.style.background = 'transparent';
+                      }
+                    }}
+                  >
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 5,
+                          marginBottom: 3,
+                        }}
+                      >
+                        <span style={{ fontSize: 10 }}>
+                          {session.subject === 'Mathematics' ? '📐'
+                            : session.subject === 'Physics' ? '⚡'
+                              : '🧪'}
+                        </span>
+                        <span
+                          style={{
+                            fontSize: 9,
+                            fontFamily: "'DM Mono', monospace",
+                            color: session.id === activeSessionId ? '#2dd4bf' : '#8b949e',
+                            letterSpacing: '0.06em',
+                            textTransform: 'uppercase',
+                          }}
+                        >
+                          {session.subject}
+                        </span>
+                      </div>
+                      <p
+                        style={{
+                          fontSize: 12,
+                          color: session.id === activeSessionId ? '#e6edf3' : '#8b949e',
+                          fontFamily: "'DM Sans', sans-serif",
+                          lineHeight: 1.4,
+                          margin: 0,
+                          overflow: 'hidden',
+                          display: '-webkit-box',
+                          WebkitLineClamp: 2,
+                          WebkitBoxOrient: 'vertical' as const,
+                        }}
+                      >
+                        {session.title}
+                      </p>
+                      <span
+                        style={{
+                          fontSize: 10,
+                          color: '#8b949e',
+                          fontFamily: "'DM Mono', monospace",
+                        }}
+                      >
+                        {session.messages.filter((m) => m.role === 'user').length}Q
+                      </span>
+                    </div>
+                    <button
+                      className="del-btn"
+                      onClick={(e) => deleteSession(session.id, e)}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        color: '#8b949e',
+                        cursor: 'pointer',
+                        fontSize: 13,
+                        padding: '0 2px',
+                        marginLeft: 4,
+                        opacity: 0,
+                        transition: 'opacity 0.15s',
+                        flexShrink: 0,
+                      }}
+                      title="Delete session"
+                    >
+                      🗑
+                    </button>
+                  </div>
+                ))}
+              </>
+            )}
+          </div>
+
+          {/* Sidebar footer */}
+          <div
+            style={{
+              padding: '12px 16px',
+              borderTop: '1px solid #21262d',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+            }}
+          >
+            <span
+              style={{
+                fontSize: 11,
+                color: '#8b949e',
+                fontFamily: "'DM Mono', monospace",
+              }}
+            >
+              {totalQuestions} questions
+            </span>
+            {sessions.length > 0 && (
+              <button
+                onClick={clearAllHistory}
+                style={{
+                  background: 'none',
+                  border: '1px solid #30363d',
+                  borderRadius: 6,
+                  color: '#f87171',
+                  fontSize: 11,
+                  fontFamily: "'DM Mono', monospace",
+                  cursor: 'pointer',
+                  padding: '4px 8px',
+                  letterSpacing: '0.04em',
+                }}
+              >
+                Clear all
+              </button>
+            )}
+          </div>
+        </aside>
+
+        {/* ── MAIN AREA ── */}
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', marginLeft: 0 }}>
+
+          {/* Header */}
+          <ChatHeader
+            classLevel={classLevel}
+            subject={subject}
+            examMode={examMode}
+            onClassChange={setClassLevel}
+            onSubjectChange={setSubject}
+            onExamModeChange={setExamMode}
+          />
+
+          {/* Toolbar below header */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 12,
+              padding: '10px 24px',
+              borderBottom: '1px solid #21262d',
+              background: '#0d1117',
+            }}
+          >
+            <button
+              onClick={() => setSidebarOpen(true)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 7,
+                background: '#161b22',
+                border: '1px solid #21262d',
+                borderRadius: 8,
+                color: '#8b949e',
+                fontSize: 12,
+                fontFamily: "'DM Sans', sans-serif",
+                cursor: 'pointer',
+                padding: '6px 12px',
+                transition: 'all 0.15s',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = '#30363d';
+                e.currentTarget.style.color = '#e6edf3';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = '#21262d';
+                e.currentTarget.style.color = '#8b949e';
+              }}
+            >
+              ☰ History
+              {sessions.length > 0 && (
+                <span
+                  style={{
+                    background: '#21262d',
+                    borderRadius: 999,
+                    padding: '1px 7px',
+                    fontSize: 10,
+                    fontFamily: "'DM Mono', monospace",
+                    color: '#2dd4bf',
+                  }}
+                >
+                  {sessions.length}
+                </span>
+              )}
+            </button>
+
+            {activeSession && (
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  fontSize: 12,
+                  color: '#8b949e',
+                  fontFamily: "'DM Sans', sans-serif",
+                  overflow: 'hidden',
+                }}
+              >
+                <span style={{ color: '#30363d' }}>·</span>
+                <span
+                  style={{
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                    maxWidth: 300,
+                  }}
+                >
+                  {activeSession.title}
+                </span>
+              </div>
+            )}
+
+            <div style={{ marginLeft: 'auto' }}>
+              <button
+                onClick={createNewSession}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  background: 'transparent',
+                  border: '1px solid #21262d',
+                  borderRadius: 8,
+                  color: '#8b949e',
+                  fontSize: 12,
+                  fontFamily: "'DM Sans', sans-serif",
+                  cursor: 'pointer',
+                  padding: '6px 12px',
+                  transition: 'all 0.15s',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.borderColor = '#2dd4bf40';
+                  e.currentTarget.style.color = '#2dd4bf';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.borderColor = '#21262d';
+                  e.currentTarget.style.color = '#8b949e';
+                }}
+              >
+                ＋ New session
+              </button>
+            </div>
+          </div>
+
+          {/* Messages */}
+          <main
+            style={{
+              flex: 1,
+              overflowY: 'auto',
+              padding: '32px 24px',
+              maxWidth: 860,
+              width: '100%',
+              margin: '0 auto',
+              alignSelf: 'center',
+            }}
+          >
+            {messages.length === 0 ? (
+              <EmptyChatState
+                onExampleClick={handleSubmit}
+                questionCount={totalQuestions}
+              />
+            ) : (
+              <ChatMessages
+                messages={messages}
+                isLoading={isLoading}
+              />
+            )}
+
+            {error && (
+              <div
+                style={{
+                  marginTop: 16,
+                  padding: '14px 18px',
+                  background: 'rgba(248,113,113,0.08)',
+                  border: '1px solid rgba(248,113,113,0.2)',
+                  borderRadius: 12,
+                  fontSize: 13,
+                  color: '#f87171',
+                  fontFamily: "'DM Sans', sans-serif",
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                }}
+              >
+                <span>⚠️</span> {error}
+              </div>
+            )}
+
+            <div ref={bottomRef} />
+          </main>
+
+          {/* Input */}
+          <ChatInput onSubmit={handleSubmit} isLoading={isLoading} />
         </div>
       </div>
-
-      {/* ── FEATURES ── */}
-      <section id="features" style={{ padding: '100px 24px' }}>
-        <div style={{ maxWidth: 1080, margin: '0 auto' }}>
-          <div style={{ textAlign: 'center', marginBottom: 64 }}>
-            <p className="section-label" style={{ marginBottom: 12 }}>Why EduSolver</p>
-            <h2 style={{ fontFamily: "'DM Serif Display', serif", fontSize: 40, fontWeight: 400, letterSpacing: '-0.025em', color: '#e6edf3' }}>
-              Not just answers. Understanding.
-            </h2>
-          </div>
-          <AnimatedSection>
-            <div className="features-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 20 }}>
-              {FEATURES.map((feature) => (
-                <div key={feature.title} className="feature-card fade-up">
-                  <div style={{ fontSize: 28, marginBottom: 16 }}>{feature.icon}</div>
-                  <h3 style={{ fontSize: 16, fontWeight: 600, color: '#e6edf3', marginBottom: 10, letterSpacing: '-0.01em' }}>
-                    {feature.title}
-                  </h3>
-                  <p style={{ fontSize: 14, color: '#8b949e', lineHeight: 1.65 }}>
-                    {feature.description}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </AnimatedSection>
-        </div>
-      </section>
-
-      {/* ── PIPELINE ── */}
-      <section id="pipeline" style={{ padding: '100px 24px', borderTop: '1px solid #21262d', background: '#161b22' }}>
-        <div style={{ maxWidth: 1080, margin: '0 auto' }}>
-          <div style={{ textAlign: 'center', marginBottom: 64 }}>
-            <p className="section-label" style={{ marginBottom: 12 }}>The Pipeline</p>
-            <h2 style={{ fontFamily: "'DM Serif Display', serif", fontSize: 40, fontWeight: 400, letterSpacing: '-0.025em', color: '#e6edf3' }}>
-              Four stages, one perfect answer
-            </h2>
-            <p style={{ fontSize: 15, color: '#8b949e', marginTop: 12, maxWidth: 480, margin: '12px auto 0', lineHeight: 1.6 }}>
-              Every question runs through a 4-stage reasoning pipeline before a single word reaches you.
-            </p>
-          </div>
-          <AnimatedSection>
-            <div className="pipeline-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 20 }}>
-              {PIPELINE_STEPS.map((step, index) => (
-                <div
-                  key={step.number}
-                  className="fade-up"
-                  style={{ padding: '28px 24px', border: '1px solid #21262d', borderRadius: 16, background: '#0d1117', position: 'relative' }}
-                >
-                  {index < PIPELINE_STEPS.length - 1 && (
-                    <div style={{ position: 'absolute', top: 48, right: -11, width: 22, height: 1, background: 'linear-gradient(90deg, #21262d, transparent)', zIndex: 1 }} />
-                  )}
-                  <div className="step-number" style={{ marginBottom: 16 }}>{step.number}</div>
-                  <h3 style={{ fontSize: 15, fontWeight: 600, color: '#e6edf3', marginBottom: 8, letterSpacing: '-0.01em' }}>{step.title}</h3>
-                  <p style={{ fontSize: 13, color: '#8b949e', lineHeight: 1.6 }}>{step.description}</p>
-                </div>
-              ))}
-            </div>
-          </AnimatedSection>
-        </div>
-      </section>
-
-      {/* ── FINAL CTA ── */}
-      <section style={{ padding: '120px 24px', textAlign: 'center' }}>
-        <div style={{ maxWidth: 600, margin: '0 auto' }}>
-          <div style={{ width: 48, height: 3, background: '#fbbf24', borderRadius: 2, margin: '0 auto 32px' }} />
-          <h2 style={{ fontFamily: "'DM Serif Display', serif", fontSize: 44, fontWeight: 400, letterSpacing: '-0.03em', color: '#e6edf3', lineHeight: 1.15, marginBottom: 20 }}>
-            Ready to actually{' '}
-            <span style={{ fontStyle: 'italic', color: '#fbbf24' }}>understand</span>{' '}
-            STEM?
-          </h2>
-          <p style={{ fontSize: 16, color: '#8b949e', lineHeight: 1.7, marginBottom: 40 }}>
-            No more memorising steps you don't understand. Ask your first question and get a solution that actually teaches you why.
-          </p>
-          <Show when="signed-out">
-            <SignUpButton mode="modal">
-              <button className="btn-primary" style={{ fontSize: 16, padding: '16px 36px' }}>
-                Open EduSolver <span>→</span>
-              </button>
-            </SignUpButton>
-          </Show>
-          <Show when="signed-in">
-            <Link href="/solve" className="btn-primary" style={{ fontSize: 16, padding: '16px 36px' }}>
-              Open EduSolver <span>→</span>
-            </Link>
-          </Show>
-        </div>
-      </section>
-
-      {/* ── FOOTER ── */}
-      <footer style={{ borderTop: '1px solid #21262d', padding: '32px 24px' }}>
-        <div style={{ maxWidth: 1080, margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span>🎓</span>
-            <span style={{ fontFamily: "'DM Serif Display', serif", fontSize: 16, color: '#8b949e' }}>EduSolver</span>
-          </div>
-          <p style={{ fontSize: 12, color: '#8b949e', fontFamily: "'DM Mono', monospace", letterSpacing: '0.04em' }}>
-            Built by Rishabh Rathore & Tanuj Kumar · Dept. of Computer Science
-          </p>
-          <p style={{ fontSize: 12, color: '#8b949e', fontFamily: "'DM Mono', monospace" }}>
-            Supervised by Prof. Vinita Jindal
-          </p>
-        </div>
-      </footer>
-    </div>
+    </>
   );
 }
