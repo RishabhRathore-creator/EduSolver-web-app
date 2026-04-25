@@ -353,7 +353,7 @@ export default function HomePage() {
             className="hero-title"
             style={{
               fontFamily: "'DM Serif Display', serif",
-              fontSize: 58,
+              fontSize: 'clamp(32px, 8vw, 58px)',   // ← fluid scaling
               fontWeight: 400,
               lineHeight: 1.1,
               letterSpacing: '-0.03em',
@@ -373,6 +373,7 @@ export default function HomePage() {
               lineHeight: 1.7,
               maxWidth: 540,
               margin: '0 auto 40px',
+              padding: '0 16px',
             }}
           >
             Step-by-step solutions with pedagogical notes, common mistake warnings,

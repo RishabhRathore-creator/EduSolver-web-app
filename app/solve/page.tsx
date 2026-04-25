@@ -546,7 +546,8 @@ export default function SolvePage() {
             style={{
               display: 'flex',
               alignItems: 'center',
-              gap: 12,
+              flexWrap: 'wrap',
+              gap: 8,
               padding: '10px 24px',
               borderBottom: '1px solid #21262d',
               background: '#0d1117',
@@ -656,7 +657,7 @@ export default function SolvePage() {
             style={{
               flex: 1,
               overflowY: 'auto',
-              padding: '32px 24px',
+              padding: 'clamp(16px, 4vw, 32px) clamp(12px, 4vw, 24px)',
               maxWidth: 860,
               width: '100%',
               margin: '0 auto',

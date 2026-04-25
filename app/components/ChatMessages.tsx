@@ -58,6 +58,8 @@ function StepCard({ step, index }: { step: Step; index: number }) {
         gap: 16,
         marginBottom: 16,
         opacity: 1,
+        wordBreak: 'break-word',
+        textAlign: 'left',
         animation: `fadeSlideIn 0.4s ease ${index * 0.08}s both`,
       }}
     >
@@ -109,6 +111,8 @@ function StepCard({ step, index }: { step: Step; index: number }) {
             color: '#8b949e',
             lineHeight: 1.65,
             fontFamily: "'DM Sans', sans-serif",
+            textAlign: 'left',
+            wordBreak: 'break-word',
           }}
         >
           {step.explanation}
@@ -153,6 +157,9 @@ function AssistantCard({ result }: { result: SolverResult }) {
             alignItems: 'center',
             justifyContent: 'center',
             fontSize: 14,
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
           }}
         >
           🎓

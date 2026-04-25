@@ -22,7 +22,9 @@
    and padding:10px would actually render at 120px — breaking layouts.
    This is the most impactful single CSS rule to set globally.
 ──────────────────────────────────────────────────────────────────────────── */
-*, *::before, *::after {
+*,
+*::before,
+*::after {
   box-sizing: border-box;
 }
 
@@ -55,16 +57,20 @@ html {
   width: 6px;
   height: 6px;
 }
+
 ::-webkit-scrollbar-track {
   background: transparent;
 }
+
 ::-webkit-scrollbar-thumb {
   background: #21262d;
   border-radius: 999px;
 }
+
 ::-webkit-scrollbar-thumb:hover {
   background: #30363d;
 }
+
 * {
   scrollbar-width: thin;
   scrollbar-color: #21262d transparent;
@@ -88,4 +94,41 @@ html {
 :focus-visible {
   outline: 2px solid rgba(45, 212, 191, 0.6);
   outline-offset: 2px;
+}
+
+/* ── Mobile fixes ── */
+@media (max-width: 640px) {
+
+  /* Prevent any element from causing horizontal scroll */
+  body {
+    overflow-x: hidden;
+  }
+
+  /* Ensure all sections have safe side padding */
+  section {
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+  }
+
+  /* Fix stats strip on mobile */
+  .stats-strip {
+    flex-wrap: wrap !important;
+  }
+
+  /* Pipeline: 1 column on mobile */
+  .pipeline-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Features: 1 column on mobile */
+  .features-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Fix hero badge overflow */
+  .badge {
+    max-width: 90vw;
+    text-align: center;
+    white-space: normal !important;
+  }
 }
