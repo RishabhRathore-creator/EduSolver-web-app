@@ -291,41 +291,112 @@ function AssistantCard({ result }: { result: SolverResult }) {
   );
 }
 
-function LoadingDots() {
+function SolutionSkeleton() {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 24, padding: '0 4px' }}>
-      <div
-        style={{
-          width: 28,
-          height: 28,
-          borderRadius: 8,
-          background: '#161b22',
-          border: '1px solid #30363d',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          fontSize: 14,
-        }}
-      >
-        🎓
+    <div style={{ marginBottom: 32 }}>
+      <style>{`
+        @keyframes shimmer {
+          0% { background-position: -600px 0; }
+          100% { background-position: 600px 0; }
+        }
+        .skel {
+          background: linear-gradient(
+            90deg,
+            #21262d 25%,
+            #2d333b 50%,
+            #21262d 75%
+          );
+          background-size: 600px 100%;
+          animation: shimmer 1.6s ease-in-out infinite;
+          border-radius: 6px;
+        }
+      `}</style>
+
+      {/* AI badge skeleton */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 20 }}>
+        <div className="skel" style={{ width: 28, height: 28, borderRadius: 8, flexShrink: 0 }} />
+        <div className="skel" style={{ width: 140, height: 12 }} />
+        <div style={{ height: 1, flex: 1, background: '#21262d' }} />
       </div>
-      <span style={{ fontSize: 12, color: '#8b949e', fontFamily: "'DM Mono', monospace", letterSpacing: '0.04em' }}>
-        Solving
-      </span>
+
+      {/* Section label skeleton */}
+      <div className="skel" style={{ width: 140, height: 10, marginBottom: 14 }} />
+
+      {/* Step skeletons — 3 steps */}
       {[0, 1, 2].map((i) => (
-        <span
+        <div
           key={i}
           style={{
-            width: 6,
-            height: 6,
-            borderRadius: '50%',
-            background: '#2dd4bf',
-            display: 'inline-block',
-            animation: 'bounce 1.2s ease infinite',
-            animationDelay: `${i * 0.2}s`,
+            display: 'flex',
+            gap: 16,
+            marginBottom: 16,
+            opacity: 1 - i * 0.15,
           }}
-        />
+        >
+          {/* Step number circle */}
+          <div className="skel" style={{ width: 36, height: 36, borderRadius: 10, flexShrink: 0 }} />
+
+          {/* Step card body */}
+          <div
+            style={{
+              flex: 1,
+              background: '#161b22',
+              borderRadius: 14,
+              border: '1px solid #21262d',
+              padding: '16px 20px',
+            }}
+          >
+            <div className="skel" style={{ width: '45%', height: 13, marginBottom: 10 }} />
+            <div className="skel" style={{ width: '100%', height: 11, marginBottom: 6 }} />
+            <div className="skel" style={{ width: '80%', height: 11 }} />
+          </div>
+        </div>
       ))}
+
+      {/* Insight cards skeleton */}
+      {['#2dd4bf', '#f87171', '#fbbf24'].map((color, i) => (
+        <div
+          key={i}
+          style={{
+            border: `1px solid ${color}30`,
+            borderLeft: `3px solid ${color}60`,
+            borderRadius: '0 12px 12px 0',
+            padding: '14px 18px',
+            marginBottom: 10,
+            opacity: 1 - i * 0.2,
+          }}
+        >
+          <div className="skel" style={{ width: 120, height: 10, marginBottom: 10 }} />
+          <div className="skel" style={{ width: '100%', height: 11, marginBottom: 6 }} />
+          <div className="skel" style={{ width: '65%', height: 11 }} />
+        </div>
+      ))}
+
+      {/* Status label */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 16 }}>
+        <span style={{
+          fontSize: 11,
+          color: '#2dd4bf',
+          fontFamily: "'DM Mono', monospace",
+          letterSpacing: '0.06em',
+        }}>
+          Solving
+        </span>
+        {[0, 1, 2].map((i) => (
+          <span
+            key={i}
+            style={{
+              width: 5,
+              height: 5,
+              borderRadius: '50%',
+              background: '#2dd4bf',
+              display: 'inline-block',
+              animation: 'bounce 1.2s ease infinite',
+              animationDelay: `${i * 0.2}s`,
+            }}
+          />
+        ))}
+      </div>
     </div>
   );
 }
@@ -369,7 +440,7 @@ export default function ChatMessages({ messages, isLoading }: ChatMessagesProps)
           }
           return <AssistantCard key={message.id} result={message.content as SolverResult} />;
         })}
-        {isLoading && <LoadingDots />}
+        {isLoading && <SolutionSkeleton />}
       </div>
     </>
   );

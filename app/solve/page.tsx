@@ -7,6 +7,7 @@ import ChatHeader from '../components/ChatHeader';
 import ChatInput from '../components/ChatInput';
 import ChatMessages from '../components/ChatMessages';
 import EmptyChatState from '../components/EmptyChatState';
+import ErrorBoundary from '../components/ErrorBoundary';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -234,7 +235,6 @@ export default function SolvePage() {
   return (
     <>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap');
         * { box-sizing: border-box; }
         body { margin: 0; background: #0d1117; }
         .sidebar-item:hover .del-btn { opacity: 1 !important; }
@@ -663,17 +663,19 @@ export default function SolvePage() {
               alignSelf: 'center',
             }}
           >
-            {messages.length === 0 ? (
-              <EmptyChatState
-                onExampleClick={handleSubmit}
-                questionCount={totalQuestions}
-              />
-            ) : (
-              <ChatMessages
-                messages={messages}
-                isLoading={isLoading}
-              />
-            )}
+            <ErrorBoundary onRetry={() => setError(null)}>
+              {messages.length === 0 ? (
+                <EmptyChatState
+                  onExampleClick={handleSubmit}
+                  questionCount={totalQuestions}
+                />
+              ) : (
+                <ChatMessages
+                  messages={messages}
+                  isLoading={isLoading}
+                />
+              )}
+            </ErrorBoundary>
 
             {error && (
               <div

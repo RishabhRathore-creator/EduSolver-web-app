@@ -1,13 +1,22 @@
 // app/page.tsx
 // Server Component — no 'use client' needed.
 // All hover effects are pure CSS (no event handlers) so this stays server-renderable.
-
+import {
+  Puzzle,
+  Ruler,
+  Target,
+  AlertTriangle,
+  BookOpen,
+  Bot
+} from 'lucide-react';
 import Link from 'next/link';
 import { Show, SignInButton, SignUpButton, UserButton } from '@clerk/nextjs';
 import AnimatedSection from './components/AnimatedSection';
+import SolutionPreview from './components/SolutionPreview';
+import SampleDemo from './components/SampleDemo';
 
 const STATS = [
-  { value: '300+', label: 'Curated Questions' },
+  { value: '3000+', label: 'Curated Questions' },
   { value: '40+', label: 'NCERT Chapters' },
   { value: 'Class 8–12', label: 'Coverage' },
   { value: '4 Methods', label: 'Solution Types' },
@@ -15,37 +24,37 @@ const STATS = [
 
 const FEATURES = [
   {
-    icon: '🧩',
+    icon: <Puzzle size={24} />,
     title: 'Step-by-Step Reasoning',
     description:
       'Every solution is broken into numbered steps with explanations of what we do and why — not just the answer.',
   },
   {
-    icon: '📐',
+    icon: <Ruler size={24} />,
     title: 'Multi-Method Solutions',
     description:
       'Algebraic, graphical, numerical, and conceptual approaches — see the same problem from four angles.',
   },
   {
-    icon: '🎯',
+    icon: <Target size={24} />,
     title: 'Exam-Aligned Output',
     description:
       'Responses are tailored to Board (CBSE), JEE, or NEET — formatted exactly as examiners expect.',
   },
   {
-    icon: '⚠️',
+    icon: <AlertTriangle size={24} />,
     title: 'Common Mistakes Highlighted',
     description:
       'Each solution flags the exact error students most often make, so you learn what not to do.',
   },
   {
-    icon: '📖',
+    icon: <BookOpen size={24} />,
     title: 'Pedagogical Notes',
     description:
       'The deeper concept behind each problem — building intuition, not just pattern-matching.',
   },
   {
-    icon: '🤖',
+    icon: <Bot size={24} />,
     title: 'Fine-Tuned on NCERT Data',
     description:
       'Powered by a custom LoRA adapter trained on our curated dataset of 300+ structured problems.',
@@ -87,8 +96,6 @@ export default function HomePage() {
       }}
     >
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap');
-
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
         /* Navbar links hover — pure CSS, no JS */
@@ -281,7 +288,12 @@ export default function HomePage() {
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span style={{ fontSize: 22 }}>🎓</span>
+            <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-label="EduSolver logo">
+              <rect x="3" y="8" width="22" height="16" rx="3" stroke="#2dd4bf" strokeWidth="1.8" />
+              <path d="M9 8V6a5 5 0 0 1 10 0v2" stroke="#2dd4bf" strokeWidth="1.8" strokeLinecap="round" />
+              <circle cx="14" cy="16" r="2.5" fill="#2dd4bf" />
+              <path d="M14 18.5v3" stroke="#2dd4bf" strokeWidth="1.8" strokeLinecap="round" />
+            </svg>
             <span
               style={{
                 fontFamily: "'DM Serif Display', serif",
@@ -391,8 +403,12 @@ export default function HomePage() {
           <p style={{ marginTop: 20, fontSize: 12, color: '#8b949e', fontFamily: "'DM Mono', monospace", letterSpacing: '0.04em' }}>
             NCERT-aligned · Classes 8–12 · Math, Physics, Chemistry
           </p>
-        </div>
-      </section>
+
+
+          <SolutionPreview />
+
+        </div>  {/* closes maxWidth div */}
+      </section>  {/* closes hero section */}
 
       {/* ── STATS STRIP ── */}
       <div style={{ borderTop: '1px solid #21262d', borderBottom: '1px solid #21262d', background: '#161b22' }}>
@@ -420,10 +436,14 @@ export default function HomePage() {
             </h2>
           </div>
           <AnimatedSection>
-            <div className="features-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 20 }}>
-              {FEATURES.map((feature) => (
-                <div key={feature.title} className="feature-card fade-up">
-                  <div style={{ fontSize: 28, marginBottom: 16 }}>{feature.icon}</div>
+            <div className="features-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gridTemplateRows: 'auto auto', gap: 20 }}>
+              {FEATURES.map((feature, index) => (
+                <div
+                  key={feature.title}
+                  className="feature-card fade-up"
+                  style={index === 0 ? { gridColumn: 'span 2' } : {}}  // ← add this
+                >
+                  <div style={{ marginBottom: 16 }}>{feature.icon}</div>
                   <h3 style={{ fontSize: 16, fontWeight: 600, color: '#e6edf3', marginBottom: 10, letterSpacing: '-0.01em' }}>
                     {feature.title}
                   </h3>
@@ -436,6 +456,9 @@ export default function HomePage() {
           </AnimatedSection>
         </div>
       </section>
+
+      {/* ← ADD HERE */}
+      <SampleDemo />
 
       {/* ── PIPELINE ── */}
       <section id="pipeline" style={{ padding: '100px 24px', borderTop: '1px solid #21262d', background: '#161b22' }}>
@@ -501,7 +524,12 @@ export default function HomePage() {
       <footer style={{ borderTop: '1px solid #21262d', padding: '32px 24px' }}>
         <div style={{ maxWidth: 1080, margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span>🎓</span>
+            <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-label="EduSolver logo">
+              <rect x="3" y="8" width="22" height="16" rx="3" stroke="#2dd4bf" strokeWidth="1.8" />
+              <path d="M9 8V6a5 5 0 0 1 10 0v2" stroke="#2dd4bf" strokeWidth="1.8" strokeLinecap="round" />
+              <circle cx="14" cy="16" r="2.5" fill="#2dd4bf" />
+              <path d="M14 18.5v3" stroke="#2dd4bf" strokeWidth="1.8" strokeLinecap="round" />
+            </svg>
             <span style={{ fontFamily: "'DM Serif Display', serif", fontSize: 16, color: '#8b949e' }}>EduSolver</span>
           </div>
           <p style={{ fontSize: 12, color: '#8b949e', fontFamily: "'DM Mono', monospace", letterSpacing: '0.04em' }}>
